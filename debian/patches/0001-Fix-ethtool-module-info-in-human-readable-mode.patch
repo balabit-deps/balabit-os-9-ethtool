@@ -1,0 +1,25 @@
+From: Lucas Kanashiro <lucas.kanashiro@canonical.com>
+Date: Mon, 11 Dec 2023 18:49:23 -0300
+Subject: Fix ethtool module info in human readable mode
+
+Origin: upstream, https://lists.openwall.net/netdev/2023/11/23/118
+Forwarded: https://salsa.debian.org/kernel-team/ethtool/-/merge_requests/3
+Bug-Ubuntu: https://bugs.launchpad.net/ubuntu/+source/ethtool/+bug/2043983
+Reviewed-By: Lucas Kanashiro <kanashiro@ubuntu.com>
+Last-Updated: 2023-12-11
+---
+ netlink/module-eeprom.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/netlink/module-eeprom.c b/netlink/module-eeprom.c
+index 09ad580..e9dd270 100644
+--- a/netlink/module-eeprom.c
++++ b/netlink/module-eeprom.c
+@@ -216,6 +216,7 @@ static int eeprom_parse(struct cmd_context *ctx)
+ 
+ 	switch (request.data[0]) {
+ #ifdef ETHTOOL_ENABLE_PRETTY_DUMP
++	case SFF8024_ID_SOLDERED_MODULE:
+ 	case SFF8024_ID_SFP:
+ 		return sff8079_show_all_nl(ctx);
+ 	case SFF8024_ID_QSFP:
