@@ -1,3 +1,11 @@
+ethtool (1:5.16-1ubuntu0.2) jammy; urgency=medium
+
+  * Fix ethtool module info missing sff-8472 output in netlink path
+    (LP: #2100246)
+    - d/p/lp2100246-Fix-missing-sff-8472-output-in-netlink-path.patch
+
+ -- Gerald Yang <gerald.yang@canonical.com>  Fri, 07 Mar 2025 15:22:37 +1300
+
 ethtool (1:5.16-1ubuntu0.1) jammy; urgency=medium
 
   * d/p/0001-Fix-ethtool-module-info-in-human-readable-mode.patch: add

@@ -1,0 +1,102 @@
+commit fb92de62eeb1cfbb21f57d60491798df762556d3
+From: Ivan Vecera <ivecera@redhat.com>
+Date: Thu, 16 Jun 2022 20:05:26 +0200
+Subject: sff-8079/8472: Fix missing sff-8472 output in netlink path
+ Commit 25b64c66f58d ("ethtool: Add netlink handler for
+ getmodule (-m)") provided a netlink variant for getmodule
+ but also introduced a regression as netlink output is different
+ from ioctl output that provides information from A2h page
+ via sff8472_show_all().
+ 
+ To fix this the netlink path should check a presence of A2h page
+ by value of bit 6 in byte 92 of page A0h and if it is set then
+ get A2h page and call sff8472_show_all().
+ 
+ Fixes: 25b64c66f58d ("ethtool: Add netlink handler for getmodule (-m)")
+ Tested-by: Daniel Juarez <djuarezg@cern.ch>
+ Tested-by: Ido Schimmel <idosch@nvidia.com>
+ Reviewed-by: Ido Schimmel <idosch@nvidia.com>
+ Co-authored-by: Ido Schimmel <idosch@nvidia.com>
+ Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+Origin: upstream, https://git.kernel.org/pub/scm/network/ethtool/ethtool.git/commit/?id=fb92de62eeb1cfbb21f57d60491798df762556d3
+Bug-Ubuntu: https://launchpad.net/bugs/2100246
+Last-Update: 2025-02-26
+
+Index: ethtool-5.16/sfpid.c
+===================================================================
+--- ethtool-5.16.orig/sfpid.c	2025-03-07 15:18:04.068776966 +1300
++++ ethtool-5.16/sfpid.c	2025-03-07 15:18:04.063776982 +1300
+@@ -13,8 +13,9 @@
+ #include "sff-common.h"
+ #include "netlink/extapi.h"
+ 
+-#define SFF8079_PAGE_SIZE	0x80
+-#define SFF8079_I2C_ADDRESS_LOW	0x50
++#define SFF8079_PAGE_SIZE		0x80
++#define SFF8079_I2C_ADDRESS_LOW		0x50
++#define SFF8079_I2C_ADDRESS_HIGH	0x51
+ 
+ static void sff8079_show_identifier(const __u8 *id)
+ {
+@@ -450,18 +451,55 @@
+ 	sff8079_show_all_common(id);
+ }
+ 
+-int sff8079_show_all_nl(struct cmd_context *ctx)
++static int sff8079_get_eeprom_page(struct cmd_context *ctx, u8 i2c_address,
++				   __u8 *buf)
+ {
+ 	struct ethtool_module_eeprom request = {
+ 		.length = SFF8079_PAGE_SIZE,
+-		.i2c_address = SFF8079_I2C_ADDRESS_LOW,
++		.i2c_address = i2c_address,
+ 	};
+ 	int ret;
+ 
+ 	ret = nl_get_eeprom_page(ctx, &request);
+-	if (ret < 0)
+-		return ret;
+-	sff8079_show_all_common(request.data);
++	if (!ret)
++		memcpy(buf, request.data, SFF8079_PAGE_SIZE);
++
++	return ret;
++}
++
++int sff8079_show_all_nl(struct cmd_context *ctx)
++{
++	u8 *buf;
++	int ret;
++
++	/* The SFF-8472 parser expects a single buffer that contains the
++	 * concatenation of the first 256 bytes from addresses A0h and A2h,
++	 * respectively.
++	 */
++	buf = calloc(1, ETH_MODULE_SFF_8472_LEN);
++	if (!buf)
++		return -ENOMEM;
++
++	/* Read A0h page */
++	ret = sff8079_get_eeprom_page(ctx, SFF8079_I2C_ADDRESS_LOW, buf);
++	if (ret)
++		goto out;
++
++	sff8079_show_all_common(buf);
++
++	/* Finish if A2h page is not present */
++	if (!(buf[92] & (1 << 6)))
++		goto out;
++
++	/* Read A2h page */
++	ret = sff8079_get_eeprom_page(ctx, SFF8079_I2C_ADDRESS_HIGH,
++				      buf + ETH_MODULE_SFF_8079_LEN);
++	if (ret)
++		goto out;
++
++	sff8472_show_all(buf);
++out:
++	free(buf);
+ 
+-	return 0;
++	return ret;
+ }

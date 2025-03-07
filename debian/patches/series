@@ -1,1 +1,2 @@
 0001-Fix-ethtool-module-info-in-human-readable-mode.patch
+lp2100246-Fix-missing-sff-8472-output-in-netlink-path.patch
